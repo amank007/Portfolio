@@ -1,10 +1,10 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 // --- Individual body parts as components ---
 
-function Head({ mouseRef, isTyping, isWaving, isClicked }) {
+function Head({ mouseRef, isTyping, isWaving, isClicked, isHovered }) {
     const headRef = useRef();
     const eyeL = useRef();
     const eyeR = useRef();
@@ -16,34 +16,49 @@ function Head({ mouseRef, isTyping, isWaving, isClicked }) {
         const my = mouseRef.current.y;
         const t = clock.getElapsedTime();
 
-        // Head follows mouse with more range
-        const targetRotY = mx * 0.5;
-        const targetRotX = -my * 0.25;
-        headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, targetRotY, 0.08);
-        headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, targetRotX, 0.08);
+        // Head follows mouse with wider range
+        const targetRotY = mx * 0.6;
+        const targetRotX = -my * 0.3;
+        headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, targetRotY, 0.1);
+        headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, targetRotX, 0.1);
 
         // Curious head tilt based on mouse position
-        headRef.current.rotation.z = THREE.MathUtils.lerp(headRef.current.rotation.z, mx * -0.08, 0.05);
+        headRef.current.rotation.z = THREE.MathUtils.lerp(headRef.current.rotation.z, mx * -0.1, 0.06);
 
-        // Eye movement — more expressive
+        // Eye movement — more expressive with wider tracking
         if (eyeL.current && eyeR.current) {
-            const eyeX = mx * 0.08;
-            const eyeY = my * 0.05;
+            const eyeX = mx * 0.1;
+            const eyeY = my * 0.07;
             eyeL.current.position.x = -0.22 + eyeX;
             eyeL.current.position.y = 0.1 + eyeY;
             eyeR.current.position.x = 0.22 + eyeX;
             eyeR.current.position.y = 0.1 + eyeY;
 
-            // Blink every ~4 seconds
-            const blinkPhase = t % 4;
+            // Blink every ~3.5 seconds, with faster blink when excited
+            const blinkInterval = isHovered ? 2.5 : 4;
+            const blinkPhase = t % blinkInterval;
             const blinkScale = blinkPhase < 0.12 ? 0.1 : 1;
             eyeL.current.scale.y = blinkScale;
             eyeR.current.scale.y = blinkScale;
+
+            // Eyes grow bigger when hovered (excited)
+            const eyeScale = isHovered ? 1.2 : 1;
+            eyeL.current.scale.x = THREE.MathUtils.lerp(eyeL.current.scale.x, eyeScale, 0.1);
+            eyeR.current.scale.x = THREE.MathUtils.lerp(eyeR.current.scale.x, eyeScale, 0.1);
         }
 
-        // Visor glow pulse
+        // Visor glow pulse — brighter on hover
         if (visorRef.current) {
-            const pulse = isClicked ? 1.2 : (isTyping ? 0.8 + Math.sin(t * 8) * 0.3 : 0.4 + Math.sin(t * 1.5) * 0.1);
+            let pulse;
+            if (isClicked) {
+                pulse = 1.5 + Math.sin(t * 12) * 0.3;
+            } else if (isTyping) {
+                pulse = 0.8 + Math.sin(t * 8) * 0.3;
+            } else if (isHovered) {
+                pulse = 0.7 + Math.sin(t * 3) * 0.2;
+            } else {
+                pulse = 0.4 + Math.sin(t * 1.5) * 0.1;
+            }
             visorRef.current.material.emissiveIntensity = pulse;
         }
     });
@@ -272,44 +287,63 @@ function Laptop({ isTyping }) {
     );
 }
 
-// Glow ring behind character — now with pulsing
-function GlowRing({ isClicked }) {
+// Glow ring behind character — now with pulsing + second ring
+function GlowRing({ isClicked, isHovered }) {
     const ref = useRef();
+    const ref2 = useRef();
 
     useFrame(({ clock }) => {
+        const t = clock.getElapsedTime();
         if (ref.current) {
-            const t = clock.getElapsedTime();
             ref.current.rotation.z = t * 0.2;
-            // Pulse on click
-            const pulseScale = isClicked ? 1.1 + Math.sin(t * 10) * 0.05 : 1;
+            const pulseScale = isClicked ? 1.15 + Math.sin(t * 10) * 0.08 : (isHovered ? 1.05 + Math.sin(t * 3) * 0.03 : 1);
             ref.current.scale.setScalar(pulseScale);
-            ref.current.material.opacity = isClicked ? 0.7 : 0.3 + Math.sin(t * 1.5) * 0.1;
+            ref.current.material.opacity = isClicked ? 0.8 : (isHovered ? 0.5 : 0.3 + Math.sin(t * 1.5) * 0.1);
+        }
+        if (ref2.current) {
+            ref2.current.rotation.z = -t * 0.15;
+            const pulse2 = isClicked ? 1.1 + Math.sin(t * 8) * 0.05 : (isHovered ? 1.02 : 0.98 + Math.sin(t * 2) * 0.02);
+            ref2.current.scale.setScalar(pulse2);
+            ref2.current.material.opacity = isHovered ? 0.35 : 0.15 + Math.sin(t * 2) * 0.05;
         }
     });
 
     return (
-        <mesh ref={ref} position={[0, 0.5, -0.5]}>
-            <torusGeometry args={[1.6, 0.02, 16, 64]} />
-            <meshStandardMaterial
-                color="#00ff88"
-                emissive="#00ff88"
-                emissiveIntensity={0.8}
-                transparent
-                opacity={0.4}
-            />
-        </mesh>
+        <group>
+            <mesh ref={ref} position={[0, 0.5, -0.5]}>
+                <torusGeometry args={[1.6, 0.02, 16, 64]} />
+                <meshStandardMaterial
+                    color="#00ff88"
+                    emissive="#00ff88"
+                    emissiveIntensity={0.8}
+                    transparent
+                    opacity={0.4}
+                />
+            </mesh>
+            {/* Second decorative ring */}
+            <mesh ref={ref2} position={[0, 0.5, -0.6]}>
+                <torusGeometry args={[1.9, 0.012, 16, 80]} />
+                <meshStandardMaterial
+                    color="#00d4ff"
+                    emissive="#00d4ff"
+                    emissiveIntensity={0.5}
+                    transparent
+                    opacity={0.2}
+                />
+            </mesh>
+        </group>
     );
 }
 
-// Floating particles around character
-function FloatingParticles() {
+// Floating particles around character — more particles, responsive to hover
+function FloatingParticles({ isHovered }) {
     const ref = useRef();
-    const count = 20;
+    const count = 30;
     const positions = useRef(
         Array.from({ length: count }, () => ({
-            x: (Math.random() - 0.5) * 3,
-            y: (Math.random() - 0.5) * 4,
-            z: (Math.random() - 0.5) * 2,
+            x: (Math.random() - 0.5) * 3.5,
+            y: (Math.random() - 0.5) * 5,
+            z: (Math.random() - 0.5) * 2.5,
             speed: 0.3 + Math.random() * 0.7,
             offset: Math.random() * Math.PI * 2,
         }))
@@ -319,14 +353,19 @@ function FloatingParticles() {
         if (!ref.current) return;
         const t = clock.getElapsedTime();
         const posArray = ref.current.geometry.attributes.position.array;
+        const speedMult = isHovered ? 2.0 : 1.0;
+        const rangeMult = isHovered ? 0.5 : 0.3;
 
         for (let i = 0; i < count; i++) {
             const p = positions.current[i];
-            posArray[i * 3] = p.x + Math.sin(t * p.speed + p.offset) * 0.3;
-            posArray[i * 3 + 1] = p.y + Math.cos(t * p.speed * 0.7 + p.offset) * 0.3;
-            posArray[i * 3 + 2] = p.z + Math.sin(t * p.speed * 0.5 + p.offset) * 0.2;
+            posArray[i * 3] = p.x + Math.sin(t * p.speed * speedMult + p.offset) * rangeMult;
+            posArray[i * 3 + 1] = p.y + Math.cos(t * p.speed * 0.7 * speedMult + p.offset) * rangeMult;
+            posArray[i * 3 + 2] = p.z + Math.sin(t * p.speed * 0.5 * speedMult + p.offset) * (rangeMult * 0.7);
         }
         ref.current.geometry.attributes.position.needsUpdate = true;
+        // Particles grow and glow more on hover
+        ref.current.material.size = isHovered ? 0.06 : 0.04;
+        ref.current.material.opacity = isHovered ? 0.85 : 0.6;
     });
 
     const initialPositions = new Float32Array(count * 3);
@@ -361,22 +400,38 @@ function FloatingParticles() {
 function CharacterModel({ mouseRef, isTyping, isClicked, isHovered }) {
     const groupRef = useRef();
     const [isWaving, setIsWaving] = useState(false);
+    const jumpVelocity = useRef(0);
+    const jumpOffset = useRef(0);
 
     useFrame(({ clock }) => {
         if (!groupRef.current) return;
         const t = clock.getElapsedTime();
 
-        // Breathing / idle floating — more alive
-        const baseY = -0.5;
-        groupRef.current.position.y = baseY + Math.sin(t * 1.2) * 0.1;
+        // Jump spring animation on click
+        if (isClicked && jumpOffset.current === 0) {
+            jumpVelocity.current = 0.08;
+        }
+        jumpOffset.current += jumpVelocity.current;
+        jumpVelocity.current -= 0.005; // gravity
+        if (jumpOffset.current < 0) {
+            jumpOffset.current = 0;
+            jumpVelocity.current = 0;
+        }
 
-        // Gentle body sway
-        groupRef.current.rotation.y = Math.sin(t * 0.3) * 0.06;
-        groupRef.current.rotation.z = Math.sin(t * 0.4) * 0.01;
+        // Breathing / idle floating — more alive, faster when hovered
+        const floatSpeed = isHovered ? 2.0 : 1.2;
+        const floatAmount = isHovered ? 0.15 : 0.1;
+        const baseY = 0;
+        groupRef.current.position.y = baseY + Math.sin(t * floatSpeed) * floatAmount + jumpOffset.current;
+
+        // Gentle body sway — more pronounced on hover
+        const swayAmount = isHovered ? 0.1 : 0.06;
+        groupRef.current.rotation.y = Math.sin(t * 0.3) * swayAmount;
+        groupRef.current.rotation.z = Math.sin(t * 0.4) * 0.015;
 
         // Lean forward when hovered
-        const targetLean = isHovered ? -0.08 : 0;
-        groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, targetLean, 0.05);
+        const targetLean = isHovered ? -0.1 : 0;
+        groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, targetLean, 0.06);
 
         // Wave on click (for 1.5s)
         if (isClicked && !isWaving) {
@@ -386,13 +441,13 @@ function CharacterModel({ mouseRef, isTyping, isClicked, isHovered }) {
     });
 
     return (
-        <group ref={groupRef} scale={[1.15, 1.15, 1.15]} position={[0, -0.5, 0]}>
-            <Head mouseRef={mouseRef} isTyping={isTyping} isWaving={isWaving} isClicked={isClicked} />
+        <group ref={groupRef} scale={[1.35, 1.35, 1.35]} position={[0, 0, 0]}>
+            <Head mouseRef={mouseRef} isTyping={isTyping} isWaving={isWaving} isClicked={isClicked} isHovered={isHovered} />
             <Body isTyping={isTyping} isWaving={isWaving} />
             <Legs />
             <Laptop isTyping={isTyping} />
-            <GlowRing isClicked={isClicked} />
-            <FloatingParticles />
+            <GlowRing isClicked={isClicked} isHovered={isHovered} />
+            <FloatingParticles isHovered={isHovered} />
         </group>
     );
 }
@@ -402,8 +457,20 @@ export default function Character3D({ isTyping = false }) {
     const mouseRef = useRef({ x: 0, y: 0 });
     const [isClicked, setIsClicked] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+    const [clickCount, setClickCount] = useState(0);
 
-    // Track normalized mouse position (-1 to 1)
+    // Track global mouse position for better responsiveness
+    useEffect(() => {
+        const handleGlobalMove = (e) => {
+            // Normalize based on window center
+            mouseRef.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseRef.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+        };
+        window.addEventListener('mousemove', handleGlobalMove);
+        return () => window.removeEventListener('mousemove', handleGlobalMove);
+    }, []);
+
+    // Track local pointer for finer control when directly over the robot
     const handlePointerMove = useCallback((e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -412,6 +479,7 @@ export default function Character3D({ isTyping = false }) {
 
     const handleClick = useCallback(() => {
         setIsClicked(true);
+        setClickCount(c => c + 1);
         setTimeout(() => setIsClicked(false), 1500);
     }, []);
 
@@ -425,7 +493,7 @@ export default function Character3D({ isTyping = false }) {
             style={{ cursor: 'pointer' }}
         >
             <Canvas
-                camera={{ position: [0, 0.6, 5], fov: 40 }}
+                camera={{ position: [0, 0.5, 8], fov: 55 }}
                 dpr={[1, 1.5]}
                 style={{ background: 'transparent', width: '100%', height: '100%' }}
             >
@@ -433,8 +501,12 @@ export default function Character3D({ isTyping = false }) {
                 <directionalLight position={[3, 5, 5]} intensity={0.9} />
                 <pointLight position={[-3, 2, 2]} intensity={0.5} color="#00ff88" />
                 <pointLight position={[3, 0, 3]} intensity={0.4} color="#00d4ff" />
+                <pointLight position={[0, -2, 3]} intensity={0.3} color="#00ff88" />
                 <CharacterModel mouseRef={mouseRef} isTyping={isTyping} isClicked={isClicked} isHovered={isHovered} />
             </Canvas>
+            <span className="character-hint">
+                {isHovered ? '⚡ Click me!' : ''}
+            </span>
         </div>
     );
 }

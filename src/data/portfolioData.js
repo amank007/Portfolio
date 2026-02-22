@@ -17,7 +17,7 @@ export const aboutText = [
 ];
 
 export const stats = [
-    { value: '2+', label: 'Years in Cybersecurity' },
+    { value: '8+', label: 'Months in Cybersecurity' },
     { value: '3+', label: 'Projects Built' },
     { value: '5+', label: 'Certifications' },
     { value: 'GATE', label: 'CS Qualified' },
@@ -105,7 +105,7 @@ export const education = [
         institution: 'DIAT — Defence Institute of Advanced Technology',
         location: 'Pune, MH',
         date: 'Jul 2024 – Present',
-        cgpa: 7.7,
+        cgpa: 7.6,
         maxCgpa: 10,
     },
     {
@@ -167,7 +167,7 @@ export const terminalCommands = {
 📍 Pune, Maharashtra, India`,
 
     education: `🎓 M.Tech Cyber Security — DIAT
-   CGPA: 7.8 (2024-Present)
+   CGPA: 7.6 (2024-Present)
 🎓 B.Tech Computer Science — SHUATS
    CGPA: 7.9 (2020-2024)`,
 

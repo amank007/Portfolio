@@ -119,7 +119,7 @@ export const education = [
 ];
 
 export const certifications = [
-    { name: 'GATE CS 2024', issuer: 'Qualified', icon: '🏅' },
+    { name: 'GATE CS 2024 & 2026', issuer: 'Qualified', icon: '🏅' },
     { name: 'Ethical Hacking', issuer: 'IIT Kharagpur', icon: '🔓' },
     { name: 'Azure Fundamentals', issuer: 'Microsoft', icon: '☁️' },
     { name: 'Cybersecurity Tools & Cyber Attacks', issuer: 'IBM', icon: '🛡️' },
